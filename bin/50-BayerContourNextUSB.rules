@@ -1,0 +1,3 @@
+# DJC 20151017 
+# Added to handle the Bayer Contour Next USB glucometer.
+SUBSYSTEM=="usb", ATTR{idVendor}=="1a79", ATTR{idProduct}=="7410", MODE:="0666"
