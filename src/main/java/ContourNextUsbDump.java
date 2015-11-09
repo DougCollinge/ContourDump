@@ -1,4 +1,4 @@
-package main.java;/*
+/*
  * The MIT License (MIT)
  *
  * Copyright (c) 2014-2015 Gary Rowe
@@ -25,12 +25,11 @@ package main.java;/*
 
 import org.hid4java.*;
 import org.hid4java.event.HidServicesEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * <p>Demonstrate the USB HID interface using a Bayer Ascensia Contour Next USB glucometer.</p>
@@ -53,6 +52,11 @@ public class ContourNextUsbDump implements HidServicesListener {
     }
 
     private void executeExample() throws HidException {
+
+        BayerContourNextUSB meter = new BayerContourNextUSB();
+        meter.initialize();
+        meter.sync();
+        System.exit(0);
 
         LOG.trace("Loading hidapi...");
 
@@ -79,17 +83,15 @@ public class ContourNextUsbDump implements HidServicesListener {
         System.exit(0);
     }
 
-    @Override
     public void hidDeviceAttached(HidServicesEvent event) {
 
     }
 
-    @Override
+
     public void hidDeviceDetached(HidServicesEvent event) {
 
     }
 
-    @Override
     public void hidFailure(HidServicesEvent event) {
         System.err.println("HID failure: " + event);
     }
