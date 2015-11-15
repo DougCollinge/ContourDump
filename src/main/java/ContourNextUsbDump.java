@@ -47,17 +47,22 @@ public class ContourNextUsbDump implements HidServicesListener {
 
     public static void main(String[] args) throws HidException {
 
+        LOG.info("{} starting.",ContourNextUsbDump.class);
         ContourNextUsbDump example = new ContourNextUsbDump();
         example.executeExample();
+        LOG.info("{} exiting.",ContourNextUsbDump.class);
+        System.exit(0);
     }
 
     private void executeExample() throws HidException {
 
         BayerContourNextUSB meter = new BayerContourNextUSB();
-        meter.initialize();
-        meter.sync();
-        System.exit(0);
+        if( meter.initialize() ) {
+            meter.sync();
+        }
+        return;
 
+/*
         LOG.trace("Loading hidapi...");
 
         // Get HID services
@@ -81,6 +86,7 @@ public class ContourNextUsbDump implements HidServicesListener {
 
         LOG.trace("Leaving hidapi...");
         System.exit(0);
+*/
     }
 
     public void hidDeviceAttached(HidServicesEvent event) {
