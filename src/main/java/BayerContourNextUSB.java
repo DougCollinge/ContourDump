@@ -103,6 +103,7 @@ public class BayerContourNextUSB implements HidServicesListener {
         rc = readAllFragments(readResult);
         while(readResult.length() == 1) {
             LOG.debug("download() got single byte:{}",(byte)readResult.charAt(0));
+            sendMessage(AsciiACK);
             rc = readAllFragments(readResult);
         }
         LOG.trace("download() table header rc:{} data:{}", rc, stringPrinter(readResult.toString()));
@@ -114,9 +115,10 @@ public class BayerContourNextUSB implements HidServicesListener {
         rc = readAllFragments(readResult);
         while(readResult.length() == 1) {
             LOG.debug("download() got single byte:{}",(byte)readResult.charAt(0));
+            sendMessage(AsciiACK);
             rc = readAllFragments(readResult);
         }
-        LOG.trace("download() table header rc:{} data:{}",rc,stringPrinter(readResult.toString()));
+        LOG.trace("download() start readings record rc:{} data:{}",rc,stringPrinter(readResult.toString()));
         out.add(readResult.toString());
 
         rc = sendMessage(AsciiACK);
@@ -128,12 +130,16 @@ public class BayerContourNextUSB implements HidServicesListener {
             rc = readAllFragments(readResult);
             LOG.trace("download() table header rc:{} data:{}", rc, stringPrinter(readResult.toString()));
 
-            // THis response could either be a reading string, or just an EOT. Check:
+            // This response could either be a reading string, or just an EOT. Check:
             if(readResult.length() == 1) {
                 // Ok, it's a single character. We think it might be and EOT.
                 byte b = (byte)readResult.charAt(0);
                 LOG.trace("download() single char result:{}", b);
-                if( b == AsciiEOT ) {
+                if( b == AsciiENQ ) {
+                    LOG.debug("download() got ENQ. ACKing it.");
+                    sendMessage(AsciiACK);
+                }
+                else if( b == AsciiEOT ) {
                     LOG.debug("download() got EOT, terminating");
                     terminated = true;
                 }
