@@ -11,6 +11,9 @@ import org.hid4java.event.HidServicesEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.hid4java.HidManager.getHidServices;
 
 public class BayerContourNextUSB implements HidServicesListener {
@@ -72,6 +75,8 @@ public class BayerContourNextUSB implements HidServicesListener {
     public void sync()
     {
         // Device should be selected and open at this point.
+        List<String> out = new ArrayList<String>();
+
         int rc;
         StringBuilder readResult = new StringBuilder(5*PACKET_LENGTH); // Just a guess on capacity.
 
@@ -98,7 +103,12 @@ public class BayerContourNextUSB implements HidServicesListener {
                     rc = sendMessage(AsciiACK);
 
                     if(readResult.length() == 1) {
-                        LOG.trace("sync() single char result:{}",readResult.charAt(0));
+                        byte b = (byte)readResult.charAt(0);
+                        LOG.trace("sync() single char result:{}", b);
+                        if( b == AsciiEOT ) {
+                            LOG.debug("sync() got EOT, terminating");
+                            pstate = State.TERMINATE;
+                        }
                     }
                     else {
                         LOG.trace("sync() multi char result.");
@@ -109,8 +119,10 @@ public class BayerContourNextUSB implements HidServicesListener {
                         if (etbetx == AsciiETX) {
                             // End of transmission, end of data, leave data mode.
                             LOG.trace("sync ETX block.");
-                            pstate = State.TERMINATE;
+//                            pstate = State.TERMINATE;
                         }
+                        out.add(readResult.toString());
+                        LOG.debug("Result read. Count now:{}.",out.size());
                     }
 
 //                    if( rc == AsciiNAK ) {
@@ -173,7 +185,7 @@ public class BayerContourNextUSB implements HidServicesListener {
             if(readBuffer[3] == 1) {
                 // Only a single byte in the packet. Return that byte.
                 LOG.trace("readAllFragments() got single char:{}",readBuffer[4]);
-                outbuf.append(readBuffer[4]);
+                outbuf.append((char)readBuffer[4]);
                 return 0;
             }
             if( readBuffer[0] != 'A' || readBuffer[1] != 'B' || readBuffer[2] != 'C') {
