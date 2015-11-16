@@ -72,6 +72,96 @@ public class BayerContourNextUSB implements HidServicesListener {
 
     }
 
+    public int download()
+    {
+        // Device should be selected and open at this point.
+        List<String> out = new ArrayList<String>();
+
+        int rc;
+        StringBuilder readResult = new StringBuilder(5*PACKET_LENGTH); // Just a guess on capacity.
+
+        // Throw meter into data transfer mode.
+        rc = sendMessage(AsciiEOT);
+        LOG.trace("download() sent EOT: rc:{}",rc);
+
+        // Expect the meter to send a string containing the device description.
+        rc = readAllFragments(readResult);
+        LOG.trace("download() meter data rc:{} data:{}",rc,stringPrinter(readResult.toString()));
+        out.add(readResult.toString());
+
+//        // Meter sends an ENQ at this point for some reason; read it in.
+//        rc = readAllFragments(readResult);
+//        if(readResult.length() != 1 || readResult.charAt(0) != (char)AsciiENQ ) {
+//            LOG.error("download() Meter sent unexpected command:{}",stringPrinter(readResult.toString()));
+//            return -1;
+//        }
+
+        // Now we send another ACK
+        rc = sendMessage(AsciiACK);
+
+        // Meter replies with table header.
+        rc = readAllFragments(readResult);
+        while(readResult.length() == 1) {
+            LOG.debug("download() got single byte:{}",(byte)readResult.charAt(0));
+            rc = readAllFragments(readResult);
+        }
+        LOG.trace("download() table header rc:{} data:{}", rc, stringPrinter(readResult.toString()));
+        out.add(readResult.toString());
+
+        rc = sendMessage(AsciiACK);
+
+        // Meter replies with ?
+        rc = readAllFragments(readResult);
+        while(readResult.length() == 1) {
+            LOG.debug("download() got single byte:{}",(byte)readResult.charAt(0));
+            rc = readAllFragments(readResult);
+        }
+        LOG.trace("download() table header rc:{} data:{}",rc,stringPrinter(readResult.toString()));
+        out.add(readResult.toString());
+
+        rc = sendMessage(AsciiACK);
+
+        int ireading = 0;
+        boolean terminated = false;
+        while(!terminated) {
+            // Meter sends next reading.
+            rc = readAllFragments(readResult);
+            LOG.trace("download() table header rc:{} data:{}", rc, stringPrinter(readResult.toString()));
+
+            // THis response could either be a reading string, or just an EOT. Check:
+            if(readResult.length() == 1) {
+                // Ok, it's a single character. We think it might be and EOT.
+                byte b = (byte)readResult.charAt(0);
+                LOG.trace("download() single char result:{}", b);
+                if( b == AsciiEOT ) {
+                    LOG.debug("download() got EOT, terminating");
+                    terminated = true;
+                }
+                else {
+                    // TODO What else could it be?
+                }
+            }
+            else {
+                LOG.trace("download() multi char result.");
+                int reslen = readResult.length();
+                int etbetx = readResult.charAt(reslen - 5);
+                int checksum = readResult.charAt(reslen - 4) * 256 + readResult.charAt(reslen - 3);
+
+                if (etbetx == AsciiETX) {
+                    // End of transmission, end of data,
+                    LOG.trace("sync ETX block.");
+//                            pstate = State.TERMINATE;
+                }
+                out.add(readResult.toString());
+                ireading++;
+                LOG.debug("Result read. Count now:{}.",ireading);
+            }
+
+        }
+
+        return 0;
+    }
+
     public void sync()
     {
         // Device should be selected and open at this point.

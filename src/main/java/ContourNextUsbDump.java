@@ -58,7 +58,7 @@ public class ContourNextUsbDump implements HidServicesListener {
 
         BayerContourNextUSB meter = new BayerContourNextUSB();
         if( meter.initialize() ) {
-            meter.sync();
+            meter.download();
         }
         return;
 
