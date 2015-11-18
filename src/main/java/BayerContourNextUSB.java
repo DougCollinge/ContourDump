@@ -181,22 +181,29 @@ public class BayerContourNextUSB implements HidServicesListener {
 
 
         while(pstate != State.TERMINATE) {
-//            rc = device.read(readBuffer, READ_TIMEOUT_MS);
-//            LOG.trace("sync readAllFragments rc:{} data:{}",rc,dataPrinter(readBuffer));
-//            sleeperms(1000);
-
             switch(pstate) {
                 case ESTABLISH:
-                    LOG.trace("sync ESTABLISH.");
+                    LOG.trace("sync() state ESTABLISH.");
                     rc = sendMessage(AsciiEOT);
-                    LOG.trace("sync sent EOT: rc:{}",rc);
-                    pstate = State.DATA;
+//                    LOG.trace("sync sent EOT: rc:{}",rc);
+                    rc = readAllFragments(readResult);
+                    if( rc != 0 ){
+                        sendMessage(AsciiNAK);
+                        break;
+                    }
+                    if(readResult.length() == 1) {
+                        LOG.trace("sync() got return:{}",readResult.charAt(0));
+                    }
+                    else {
+                        LOG.trace("sync() got string. Switching to data mode.");
+                        pstate = State.DATA;
+                    }
                     break;
                 case DATA:
-                    LOG.trace("sync DATA.");
-                    rc = readAllFragments(readResult);
-                    LOG.trace("sync readAllFragments rc:{} data:{}",rc,stringPrinter(readResult.toString()));
-                    rc = sendMessage(AsciiACK);
+                    LOG.trace("sync() state DATA.");
+
+//                    LOG.trace("sync() string:{}",rc,stringPrinter(readResult.toString()));
+//                    rc = sendMessage(AsciiACK);
 
                     if(readResult.length() == 1) {
                         byte b = (byte)readResult.charAt(0);
@@ -205,9 +212,17 @@ public class BayerContourNextUSB implements HidServicesListener {
                             LOG.debug("sync() got EOT, terminating");
                             pstate = State.TERMINATE;
                         }
+                        else if( b == AsciiENQ ) {
+                            LOG.debug("sync() got ENQ, back to establish mode.");
+                            pstate = State.ESTABLISH;
+                        }
+                        else {
+                            LOG.error("sync() got something unexpected:{}",b);
+                            pstate = State.ESTABLISH;
+                        }
                     }
                     else {
-                        LOG.trace("sync() multi char result.");
+                        LOG.trace("sync() string result:{}",stringPrinter(readResult.toString()));
                         int reslen = readResult.length();
                         int etbetx = readResult.charAt(reslen - 5);
                         int checksum = readResult.charAt(reslen - 4) * 256 + readResult.charAt(reslen - 3);
@@ -219,21 +234,16 @@ public class BayerContourNextUSB implements HidServicesListener {
                         }
                         out.add(readResult.toString());
                         LOG.debug("Result read. Count now:{}.",out.size());
-                    }
+                        sendMessage(AsciiACK);  // This is what we expected. ACK it.
 
-//                    if( rc == AsciiNAK ) {
-//                        pstate = State.TERMINATE;
-//                    }
-//                    else if( rc==AsciiENQ ) {
-//                        rc = sendMessage(AsciiACK);
-//
-//                    }
-//                    break;
-////                case (DATA):
-////                        rc = readAllFragments(readResult) ;
-////                    LOG.trace("sync() rc:{} readBuffer:{}", rc, dataPrinter(readBuffer));
-            }
-        }
+                        rc = readAllFragments(readResult);
+                        if( rc != 0 ) {
+                            sendMessage(AsciiEOT);
+                        }
+                    }
+                    break;
+            } // switch
+        } // while
 
         LOG.debug("sync() finished with:\n{}", stringPrinter(readResult.toString()) );
     }
@@ -277,12 +287,15 @@ public class BayerContourNextUSB implements HidServicesListener {
         do {
             rc = device.read(readBuffer, READ_TIMEOUT_MS);
             LOG.trace( "read rc:{} buf:{}", rc, dataPrinter(readBuffer) );
-
+            if(readBuffer[3] == 0) {
+                LOG.trace("readAllFragments() empty buffer.");
+                return -1;
+            }
             if(readBuffer[3] == 1) {
                 // Only a single byte in the packet. Return that byte.
                 LOG.trace("readAllFragments() got single char:{}",readBuffer[4]);
                 outbuf.append((char)readBuffer[4]);
-                return 0;
+                break;
             }
             if( readBuffer[0] != 'A' || readBuffer[1] != 'B' || readBuffer[2] != 'C') {
                 // There's a problem. NAK the packet here. TODO
@@ -290,7 +303,12 @@ public class BayerContourNextUSB implements HidServicesListener {
             fraglen = readBuffer[3];
 
             appendFragment(outbuf, readBuffer);
-        } while(!( outbuf.charAt(outbuf.length()-2) == AsciiCR && outbuf.charAt((outbuf.length()-1)) == AsciiLF ));
+            if( outbuf.charAt(outbuf.length()-2) == AsciiCR && outbuf.charAt((outbuf.length()-1)) == AsciiLF ) {
+                break;
+            }
+
+        } while(true);
+
         LOG.debug("returning normally.");
         return 0;
     }
