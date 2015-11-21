@@ -213,8 +213,9 @@ public class BayerContourNextUSB implements HidServicesListener {
                             pstate = State.TERMINATE;
                         }
                         else if( b == AsciiENQ ) {
-                            LOG.debug("sync() got ENQ, back to establish mode.");
-                            pstate = State.ESTABLISH;
+                            LOG.debug("sync() got ENQ, ignore it.");
+                            rc = readAllFragments(readResult);
+                            // Stay in data mode.
                         }
                         else {
                             LOG.error("sync() got something unexpected:{}",b);
